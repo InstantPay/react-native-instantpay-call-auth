@@ -51,7 +51,7 @@ class InstantpayCallAuthModule(reactContext: ReactApplicationContext) :
         const val ACTION_RESULT_FOR_CALL_SCREENING = "com.instantpaycallauth.IPAY_CALL_AUTH_CALL_SCREENING_INFO"
 
     }
-    
+
     override fun getName(): String {
         return NAME
     }
