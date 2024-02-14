@@ -17,11 +17,11 @@ export default function App() {
             verifyFor : "",
             requiredAction: {
                 matchWithVerifyFor : true,
-                silenceCall : false,
+                silenceCall : true,
                 disallowCall : true, //Call Stop for the number
                 rejectCall : true, //rejectCall work based on disallowCall
-                skipCallLog : false, //skipCallLog work based on disallowCall
-                skipNotification : false,
+                skipCallLog : true, //skipCallLog work based on disallowCall
+                skipNotification : true,
             }
         });
 
@@ -33,7 +33,7 @@ export default function App() {
         console.log(out)
     };
 
-    const listenOnChangeBluetoothState = () => {
+    const listenOnChangeState = () => {
         RNCallAuth.addEventListener("CallScreeningResult",handleConnection)
     }
 
@@ -55,7 +55,18 @@ export default function App() {
 
     const callForPermission = async () => {
 
+        removeListener();
+
+        listenOnChangeState(); 
+
         let out = await RNCallAuth.requestForPermission();
+
+        console.log(out);
+    }
+
+    const clearCallLogData = async () => {
+
+        let out = await RNCallAuth.clearVerificationLog('1234567891');
 
         console.log(out);
     }
@@ -74,7 +85,9 @@ export default function App() {
             <Text></Text>
             <Button title='Remove Listener' style={{marginBottom:20}} onPress={() => removeListener()} />
             <Text></Text>
-            <Button title='Add Listener' onPress={() => listenOnChangeBluetoothState()} />
+            <Button title='Add Listener' onPress={() => listenOnChangeState()} />
+            <Text></Text>
+            <Button title='Clear Log' onPress={() => clearCallLogData("")} />
         </View>
     );
 }

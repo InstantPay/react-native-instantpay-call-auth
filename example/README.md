@@ -37,16 +37,8 @@ import RNCallAuth from 'react-native-instantpay-call-auth';
 
 // ...
 
-let data = await RNBluetooth.getStatus();
+let data = await RNCallAuth.getStatus();
 ```
-
-**Note about getStatus Method**
-
-Possible options values : 
-
-| key               | Description                                        |  type      | required       |
-| ---------------   | -------------------------------------------------- | ---------- | -------------- |
-| requestToEnable   | Request to Enable Bluetooth                        | boolean    | Optional       |
 
 
 ### Event Listener Methods

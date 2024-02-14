@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.os.IBinder
+import android.provider.CallLog
 import android.util.Log
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
@@ -64,6 +65,88 @@ class InstantpayCallAuthModule(reactContext: ReactApplicationContext) :
     }
 
     /**
+     * Request for required Permission
+     */
+    @ReactMethod
+    fun requestForPermission(promise: Promise){
+
+        responsePromise = promise
+
+        try {
+
+            val permissionResp = callScreeningHelper.requestRequiredPermission()
+
+            val sendStatus = if(permissionResp["status"] == "false")  FAILED else SUCCESS
+
+            if(permissionResp["status"].equals("true")){
+                registerPermissionResultReceiver()
+            }
+
+            resolve(
+                permissionResp["msg"].toString(),
+                sendStatus,
+                "",
+                permissionResp["actCode"].toString()
+            )
+
+        }
+        catch (e:Exception){
+            resolve(e.message.toString() + " #IAMRFP1")
+        }
+    }
+
+    /**
+     * Register Permission Result Receiver
+     */
+    private fun registerPermissionResultReceiver(){
+
+        if(permissionResultReceiver == null){
+
+            permissionResultReceiver = object : BroadcastReceiver(){
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    intent?.let {
+                        if(it.action == ACTION_RESULT_FOR_PERMISSION){
+
+                            //logPrint("get intent " + it.getStringExtra("result"))
+
+                            val perms = mutableMapOf<String, String>()
+                            perms["status"] = "SUCCESS"
+                            perms["message"] = "Permission Result"
+
+                            if(it.getStringExtra("result")!!.isNotEmpty()){
+                                perms["data"] = JSONArray(it.getStringExtra("result").toString()).toString()
+                            }
+
+                            val outPer = CommonHelpers.response(perms)
+
+                            sendEvent(reactContexts, "RequiredPermissionResult", outPer)
+                        }
+                    }
+                }
+            }
+
+            reactContexts.registerReceiver(
+                permissionResultReceiver,
+                IntentFilter(ACTION_RESULT_FOR_PERMISSION)
+            )
+        }
+
+    }
+
+    /**
+     * Un-Register Permission Result Receiver
+     */
+    private fun unregisterPermissionResultReceiver(){
+        if(permissionResultReceiver!=null){
+            permissionResultReceiver.let {
+                reactContexts.unregisterReceiver(it)
+                permissionResultReceiver = null
+            }
+        }
+
+    }
+
+    /**
      * To check User gave permission and set App as default CallId
      */
     @ReactMethod
@@ -113,6 +196,58 @@ class InstantpayCallAuthModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    /**
+     * Register Caller Id Permission Result Receiver
+     */
+    private fun registerCallerIdPermissionResultReceiver(){
+        if(callerIdPermissionResultReceiver == null){
+            callerIdPermissionResultReceiver = object : BroadcastReceiver(){
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    intent?.let {
+                        if(it.action == ACTION_RESULT_FOR_CALLER_ID_PERMISSION){
+                            //logPrint("get intent " + it.getStringExtra("result"))
+
+                            val perms = mutableMapOf<String, String>()
+                            perms["status"] = "SUCCESS"
+                            perms["message"] = "Caller Id Permission Result"
+
+                            if(it.getStringExtra("result")!!.isNotEmpty()){
+
+                                val statusObj = mutableMapOf<String, String>()
+                                statusObj["permissionStatus"] = it.getStringExtra("result").toString()
+                                perms["data"] = JSONObject(statusObj.toString()).toString()
+                            }
+
+                            val outPer = CommonHelpers.response(perms)
+
+                            sendEvent(reactContexts, "CallerIdPermissionResult", outPer)
+                        }
+                    }
+                }
+            }
+
+            reactContexts.registerReceiver(callerIdPermissionResultReceiver, IntentFilter(
+                ACTION_RESULT_FOR_CALLER_ID_PERMISSION)
+            )
+        }
+    }
+
+    /**
+     * Un-Register Caller Id Permission Result Receiver
+     */
+    private fun unregisterCallerIdPermissionResultReceiver(){
+        if(callerIdPermissionResultReceiver!=null){
+            callerIdPermissionResultReceiver.let {
+                reactContexts.unregisterReceiver(it)
+                callerIdPermissionResultReceiver = null
+            }
+        }
+
+    }
+
+    /**
+     * Start Call Screening
+     */
     @ReactMethod
     fun startCallScreening(options: String?, promise: Promise) {
         if (!isServiceConnected) {
@@ -144,9 +279,12 @@ class InstantpayCallAuthModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    /**
+     * Stop Call Screening
+     */
     @ReactMethod
     fun stopCallScreening(promise: Promise) {
-        if (isServiceConnected) {
+        if (isServiceConnected && serviceConnection!=null) {
 
             responsePromise = promise
 
@@ -167,44 +305,9 @@ class InstantpayCallAuthModule(reactContext: ReactApplicationContext) :
         }
     }
 
-    @ReactMethod
-    fun requestForPermission(promise: Promise){
-
-        responsePromise = promise
-
-        try {
-
-            val permissionResp = callScreeningHelper.requestRequiredPermission()
-
-            val sendStatus = if(permissionResp["status"] == "false")  FAILED else SUCCESS
-
-            if(permissionResp["status"].equals("true")){
-                registerPermissionResultReceiver()
-            }
-
-            resolve(
-                permissionResp["msg"].toString(),
-                sendStatus,
-                "",
-                permissionResp["actCode"].toString()
-            )
-
-        }
-        catch (e:Exception){
-            resolve(e.message.toString() + " #IAMRFP1")
-        }
-    }
-
-    // Required for rn built in EventEmitter Calls.
-    @ReactMethod
-    fun addListener(eventName: String?) {
-    }
-
-    @ReactMethod
-    fun removeListeners(count: Int?) {
-        unregisterPermissionResultReceiver()
-    }
-
+    /**
+     * Service Connection
+     */
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
 
@@ -271,12 +374,47 @@ class InstantpayCallAuthModule(reactContext: ReactApplicationContext) :
      * Un-register Result for Call Screening
      */
     private fun unregisterResultForCallScreeningReceiver() {
-        callScreeningResultReceiver?.let {
-            reactContexts.unregisterReceiver(it)
-            callScreeningResultReceiver = null
+        if(callScreeningResultReceiver!=null){
 
-            resolve("Disconnected to Call Services", SUCCESS, "", "DISCONNECTED")
+            callScreeningResultReceiver?.let {
+                reactContexts.unregisterReceiver(it)
+                callScreeningResultReceiver = null
+
+                resolve("Disconnected to Call Services", SUCCESS, "", "DISCONNECTED")
+            }
         }
+
+    }
+
+    /**
+     * Remove Verified Call Log
+     */
+    @ReactMethod
+    fun removeVerifiedCallLog(numberTag: String, promise: Promise) {
+
+        responsePromise = promise
+
+        try {
+
+            val queryString = CallLog.Calls.NUMBER + " LIKE '%" + numberTag + "%'"
+
+            reactContexts.contentResolver.delete(CallLog.Calls.CONTENT_URI, queryString, null)
+
+            resolve("Successfully Removed", SUCCESS)
+        }
+        catch (e:Exception){
+            resolve(e.message.toString() + " #IAMRVC1")
+        }
+    }
+
+    // Required for rn built in EventEmitter Calls.
+    @ReactMethod
+    fun addListener(eventName: String?) {
+    }
+
+    @ReactMethod
+    fun removeListeners(count: Int?) {
+        unregisterPermissionResultReceiver()
     }
 
     private fun sendPhoneNumberToReactNative(phoneNumber: String?) {
@@ -288,100 +426,6 @@ class InstantpayCallAuthModule(reactContext: ReactApplicationContext) :
             reactContexts
                 .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
                 .emit("callScreeningResult", phoneNumber)
-        }
-    }
-
-    /**
-     * Register Permission Result Receiver
-     */
-    private fun registerPermissionResultReceiver(){
-
-        if(permissionResultReceiver == null){
-
-            permissionResultReceiver = object : BroadcastReceiver(){
-                override fun onReceive(context: Context?, intent: Intent?) {
-                    intent?.let {
-                        if(it.action == ACTION_RESULT_FOR_PERMISSION){
-
-                            //logPrint("get intent " + it.getStringExtra("result"))
-
-                            val perms = mutableMapOf<String, String>()
-                            perms["status"] = "SUCCESS"
-                            perms["message"] = "Permission Result"
-
-                            if(it.getStringExtra("result")!!.isNotEmpty()){
-                                perms["data"] = JSONArray(it.getStringExtra("result").toString()).toString()
-                            }
-
-                            val outPer = CommonHelpers.response(perms)
-
-                            sendEvent(reactContexts, "RequiredPermissionResult", outPer)
-                        }
-                    }
-                }
-            }
-
-            reactContexts.registerReceiver(
-                permissionResultReceiver,
-                IntentFilter(ACTION_RESULT_FOR_PERMISSION)
-            )
-        }
-
-    }
-
-    /**
-     * Un-Register Permission Result Receiver
-     */
-    private fun unregisterPermissionResultReceiver(){
-        permissionResultReceiver.let {
-            reactContexts.unregisterReceiver(it)
-            permissionResultReceiver = null
-        }
-    }
-
-    /**
-     * Register Caller Id Permission Result Receiver
-     */
-    private fun registerCallerIdPermissionResultReceiver(){
-        if(callerIdPermissionResultReceiver == null){
-            callerIdPermissionResultReceiver = object : BroadcastReceiver(){
-                override fun onReceive(context: Context?, intent: Intent?) {
-                    intent?.let {
-                        if(it.action == ACTION_RESULT_FOR_CALLER_ID_PERMISSION){
-                            //logPrint("get intent " + it.getStringExtra("result"))
-
-                            val perms = mutableMapOf<String, String>()
-                            perms["status"] = "SUCCESS"
-                            perms["message"] = "Caller Id Permission Result"
-
-                            if(it.getStringExtra("result")!!.isNotEmpty()){
-
-                                val statusObj = mutableMapOf<String, String>()
-                                statusObj["permissionStatus"] = it.getStringExtra("result").toString()
-                                perms["data"] = JSONObject(statusObj.toString()).toString()
-                            }
-
-                            val outPer = CommonHelpers.response(perms)
-
-                            sendEvent(reactContexts, "CallerIdPermissionResult", outPer)
-                        }
-                    }
-                }
-            }
-
-            reactContexts.registerReceiver(callerIdPermissionResultReceiver, IntentFilter(
-                ACTION_RESULT_FOR_CALLER_ID_PERMISSION)
-            )
-        }
-    }
-
-    /**
-     * Un-Register Caller Id Permission Result Receiver
-     */
-    private fun unregisterCallerIdPermissionResultReceiver(){
-        callerIdPermissionResultReceiver.let {
-            reactContexts.unregisterReceiver(it)
-            callerIdPermissionResultReceiver = null
         }
     }
 

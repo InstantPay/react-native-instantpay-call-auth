@@ -93,7 +93,7 @@ const RNCallAuth = {
     },
     startCallScreening: (options={}) => {
 
-        let params = null;
+        let params:any = null;
 
         if(Object.keys(options).length > 0){
             params = JSON.stringify(options);
@@ -102,8 +102,10 @@ const RNCallAuth = {
         return InstantpayCallAuth.startCallScreening(params);
     },
     stopCallScreening: () => {
-
         return InstantpayCallAuth.stopCallScreening();
+    },
+    clearVerificationLog: (mobile:String) => {
+        return InstantpayCallAuth.removeVerifiedCallLog(mobile);
     }
 }
 

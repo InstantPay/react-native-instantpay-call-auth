@@ -3,6 +3,7 @@ package com.instantpaycallauth
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
+import android.provider.CallLog
 import android.telecom.Call
 import android.telecom.CallScreeningService
 import android.util.Log
@@ -10,7 +11,6 @@ import androidx.annotation.RequiresApi
 import org.json.JSONObject
 import org.json.JSONTokener
 import java.lang.reflect.InvocationTargetException
-import java.util.Objects
 
 
 @RequiresApi(Build.VERSION_CODES.N)
@@ -29,7 +29,7 @@ class CallAuthScreeningService : CallScreeningService() {
             //logPrint("CallAuthScreeningService -> getIntent: " + callDetails);
 
             if(verificationOptions!=null && verificationOptions is JSONObject){
-                
+
                 val requestParams = verificationOptions!!
 
                 if(requestParams.has("requiredAction")
@@ -117,11 +117,11 @@ class CallAuthScreeningService : CallScreeningService() {
 
             //logPrint("Error InvocationTargetException: " + ei.cause.toString())
             sendToMainModule(null , ei.cause.toString())
-            
+
         } catch (e: Exception) {
             //logPrint("Error CallAuthScreeningService Exception: " + e.toString())
             sendToMainModule(null , e.message.toString())
-            
+
         }
 
     }

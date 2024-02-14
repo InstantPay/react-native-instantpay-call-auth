@@ -30,7 +30,8 @@ class CallScreeningHelper : PermissionListener  {
         "android.permission.READ_PHONE_STATE",
         "android.permission.READ_CALL_LOG",
         "android.permission.ANSWER_PHONE_CALLS",
-        "android.permission.CALL_PHONE"
+        "android.permission.CALL_PHONE",
+        "android.permission.WRITE_CALL_LOG"
     )
 
     private val roleManagerActivityStatus = object : BaseActivityEventListener() {
@@ -256,6 +257,7 @@ class CallScreeningHelper : PermissionListener  {
         output["status"] = "false"
         output["msg"] = ""
         output["data"] = ""
+        output["actCode"] = ""
 
         try {
 
@@ -268,6 +270,7 @@ class CallScreeningHelper : PermissionListener  {
 
                         output["status"] = "true"
                         output["msg"] = "App Selected as Default Caller Id"
+                        output["actCode"] = "ApprovedAsDefault"
                         return output
 
                     } else {
